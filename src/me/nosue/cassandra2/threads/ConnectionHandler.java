@@ -1,8 +1,8 @@
 package me.nosue.cassandra2.threads;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import me.nosue.cassandra2.io.OsuWriter;
+
+import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
 
@@ -19,7 +19,7 @@ public class ConnectionHandler extends Thread {
         // We will need to parse the HTTP headers first, we will start by reading text before going the whole binary
         // reading route, this would probably be better with a HTTP server library
 
-        HashMap<String, String> headers = new HashMap<>();
+        HashMap<String, String> requestHeaders = new HashMap<>();
 
         try {
             InputStreamReader inputStreamReader = new InputStreamReader(client.getInputStream());
@@ -32,19 +32,19 @@ public class ConnectionHandler extends Thread {
                 }
                 if (character == '\n') {
                     if (temp.length() > 0) {
-                        if (headers.size() == 0) {
+                        if (requestHeaders.size() == 0) {
                             // First element, let's assume this is the HTTP request bit
                             // Let's store in case we want to use it in the future
                             String[] data = temp.split(" "); // POST / HTTP/1.1
-                            headers.put("RequestType", data[0]); // POST
-                            headers.put("RequestLocation", data[1]); // /
-                            headers.put("HttpVersion", data[2]); // HTTP/1.1
+                            requestHeaders.put("RequestType", data[0]); // POST
+                            requestHeaders.put("RequestLocation", data[1]); // /
+                            requestHeaders.put("HttpVersion", data[2]); // HTTP/1.1
                         } else {
                             String[] headerData = temp.split(":");
                             String key = headerData[0].trim();
                             String value = headerData[1].trim();
 
-                            headers.put(key, value);
+                            requestHeaders.put(key, value);
                         }
 
                         temp = "";
@@ -58,13 +58,38 @@ public class ConnectionHandler extends Thread {
                 }
             }
 
-            OutputStreamWriter writer = new OutputStreamWriter(client.getOutputStream());
-            for (String header : headers.keySet()) {
-                writer.write(String.format("%s: %s\n", header, headers.get(header)));
+            ByteArrayOutputStream outputBody = new ByteArrayOutputStream();
+            HashMap<String, String> outputHeaders = new HashMap<>();
+            outputHeaders.put("connection", "close");
+            outputHeaders.put("server", "Cassandra2");
+
+            OsuWriter writer = new OsuWriter(outputBody);
+
+            if (requestHeaders.getOrDefault("User-Agent", "").equals("osu!")) {
+                // Do osu! server magic here
+            } else {
+                // Web interface, might show something here but for the mean time let's be basic
+                writer.writeStringBytes("Cassandra2 Bancho <3");
             }
 
+            DataOutputStream outputStream = new DataOutputStream(client.getOutputStream());
 
-            writer.close();
+            // HTTP header stuff
+            outputStream.writeBytes("HTTP/1.1 200 OK"); // Everything's probably fine
+            for (String header : outputHeaders.keySet()) {
+                outputStream.writeBytes(String.format("%s: %s\r\n", header, outputHeaders.get(header)));
+            }
+
+            outputStream.writeBytes("\r\n"); // Double new line to indicate header end
+
+            // Close handle on outputBody first
+            outputBody.close();
+
+            // Output the body
+            outputStream.write(outputBody.toByteArray());
+
+            // Close stuff
+            outputStream.close();
             inputStreamReader.close();
 
 

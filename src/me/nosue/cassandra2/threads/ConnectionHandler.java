@@ -67,6 +67,40 @@ public class ConnectionHandler extends Thread {
 
             if (requestHeaders.getOrDefault("User-Agent", "").equals("osu!")) {
                 // Do osu! server magic here
+
+                if (requestHeaders.containsKey("osu-token")) {
+                    // We have a token, that means we're probably authenticated
+                } else {
+                    // We don't have a token, probably a login request
+                    // Format:
+                    // Username
+                    // Password (in MD5)
+                    // version|utc offset|display city location (1 or 0)|machine info|block nonfriend pms (1 or 0)
+                    // Machine info is
+                    // exe hash:MAC addresses separated by . or "runningunderwine":MD5 of previous value:uninstallID MD5 hashed twice:disk signature MD5 hashed
+
+                    // OK, let's read this
+                    String[] loginData = new String[3];
+                    temp = "";
+                    for (int i = 0; i < 2; i++) {
+                        // Basically read string character by character again
+                        char character = (char) inputStreamReader.read();
+                        if (character == '\r') {
+                            continue;
+                        }
+
+                        if (character == '\n') {
+                            loginData[i] = temp;
+                            temp = "";
+                        } else {
+                            temp += character;
+                        }
+                    }
+
+                    // TODO real auth
+
+
+                }
             } else {
                 // Web interface, might show something here but for the mean time let's be basic
                 writer.writeStringBytes("Cassandra2 Bancho <3");

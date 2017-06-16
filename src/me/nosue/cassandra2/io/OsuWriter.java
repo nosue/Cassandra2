@@ -103,4 +103,8 @@ public class OsuWriter {
         long ticks = TICKS_AT_EPOCH + calendar.getTimeInMillis() * TICKS_PER_MILLISECOND;
         this.writer.writeLong(ticks);
     }
+
+    public void writeStringBytes(String value) throws IOException {
+        this.writer.writeBytes(value);
+    }
 }
